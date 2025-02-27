@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.urls import reverse
 import uuid
 
@@ -39,12 +40,43 @@ class User(models.Model):
         
 class Transaction(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name="Transaction Date", help_text="The date of the transaction.")
-    amount = models.DecimalField(max_digits=9, decimal_places=2, verbose_name="Amount", help_text="The amount of the transaction.")
+    amount = models.DecimalField(
+        max_digits=9,
+        decimal_places=2,
+        verbose_name="Amount",
+        help_text="The amount of the transaction.",
+        validators=[MinValueValidator(0.01)]  # Ensures amount is greater than 0
+    )
     sender = models.ForeignKey(User, on_delete=models.PROTECT, related_name='sent_transactions', verbose_name="Sender", help_text="The user who sent the transaction.")
     receiver = models.ForeignKey(User, on_delete=models.PROTECT, related_name='received_transactions', verbose_name="Receiver", help_text="The user who received the transaction.")
 
     def __str__(self):
         return f"Transaction {self.id} - {self.amount}"
+
+    def clean(self):
+        # Ensure amount is not None
+        if self.amount is None:
+            raise ValidationError({"amount": "The amount cannot be null."})
+
+        # Ensure amount is greater than 0
+        if self.amount <= 0:
+            raise ValidationError({"amount": "The amount must be greater than 0."})
+
+        # Ensure sender is not None and exists in the User table
+        if self.sender is None:
+            raise ValidationError({"sender": "The sender cannot be null."})
+        if not User.objects.filter(id=self.sender.id).exists():
+            raise ValidationError({"sender": "The sender does not exist in the User table."})
+
+        # Ensure receiver is not None and exists in the User table
+        if self.receiver is None:
+            raise ValidationError({"receiver": "The receiver cannot be null."})
+        if not User.objects.filter(id=self.receiver.id).exists():
+            raise ValidationError({"receiver": "The receiver does not exist in the User table."})
+
+        # Ensure the sender has enough balance to send the amount
+        if self.sender.walletBalance < self.amount:
+            raise ValidationError({"amount": "The sender does not have enough balance to complete this transaction."})
 
     class Meta:
         ordering = ['-date']
