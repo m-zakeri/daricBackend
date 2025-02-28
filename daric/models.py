@@ -18,7 +18,8 @@ class User(models.Model):
     firstName = models.CharField(max_length=255, verbose_name="First Name", help_text="Enter the user's first name.")
     lastName = models.CharField(max_length=255, verbose_name="Last Name", help_text="Enter the user's last name.")
     phoneNumber = models.CharField(max_length=11, unique=True, verbose_name="Phone Number", help_text="Enter the user's phone number.")
-    walletBalance = models.DecimalField(max_digits=11, decimal_places=2, verbose_name="Wallet Balance", help_text="The current balance in the user's wallet.")
+    walletBalance = models.DecimalField(max_digits=11, decimal_places=2, default=0, verbose_name="Wallet Balance", help_text="The current balance in the user's wallet.")
+    socialSecureNumber = models.CharField(max_length=20, unique=True, verbose_name="Social Secure Number", help_text="Enter the user's social security number.")
     job = models.CharField(max_length=2, choices=JOBS_CHOICES, default=JOB_COMMON_USER, verbose_name="Job", help_text="Select the user's job type.")
     qr_code_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name="QR Code ID", help_text="Unique ID for generating QR codes.")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At", help_text="The date and time when the user was created.")
@@ -36,7 +37,6 @@ class User(models.Model):
 
     def get_absolute_url(self):
         return reverse('user-detail', args=[str(self.id)])
-
         
 class Transaction(models.Model):
     date = models.DateField(auto_now_add=True, verbose_name="Transaction Date", help_text="The date of the transaction.")
