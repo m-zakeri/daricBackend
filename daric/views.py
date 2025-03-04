@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Transaction, User
 from .serializers import TransactionSerializer, UserSerializer, ReceiverUserSerializer
+import uuid
 
 @api_view(['GET'])
 def get_user(request, phoneNumber):
@@ -181,3 +182,92 @@ def create_transaction(request):
             {"error": f"An error occurred: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['PUT'])
+def update_default_payment_amount(request):
+    # Extract user_id and default_payment_amount from the request
+    user_id = request.data.get('user_id')
+    default_payment_amount = request.data.get('default_payment_amount')
+
+    # Validate required fields
+    if user_id is None or default_payment_amount is None:
+        return Response(
+            {"error": "user_id and default_payment_amount are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Convert default_payment_amount to Decimal
+        default_payment_amount = Decimal(str(default_payment_amount))  # Convert to string first to avoid floating-point precision issues
+
+        # Fetch the user
+        user = User.objects.get(id=user_id)
+
+        # Validate the default_payment_amount
+        if default_payment_amount < 0:
+            raise ValidationError({"default_payment_amount": "The default payment amount cannot be negative."})
+
+        # Update the default_payment_amount
+        user.default_payment_amount = default_payment_amount
+        user.save()
+
+        # Serialize the updated user for the response
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['PUT'])
+def generate_new_qr_code_id(request):
+    # Extract user_id from the request
+    user_id = request.data.get('user_id')
+
+    # Validate required fields
+    if user_id is None:
+        return Response(
+            {"error": "user_id is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Fetch the user
+        user = User.objects.get(id=user_id)
+
+        # Generate a new unique qr_code_id
+        user.qr_code_id = uuid.uuid4()
+        user.save()
+
+        # Serialize the updated user for the response
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

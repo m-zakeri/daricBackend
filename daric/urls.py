@@ -10,4 +10,6 @@ urlpatterns = [
     path('user/update/<int:user_id>/', views.update_user_name),
     path('wallet/increase/', views.increase_wallet_balance),
     path('transactions/create/', views.create_transaction),
+    path('update_default_payment_value/', views.update_default_payment_amount),
+    path('generate_new_qr_code_id/', views.generate_new_qr_code_id),
 ]
