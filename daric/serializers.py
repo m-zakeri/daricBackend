@@ -6,6 +6,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['firstName', 'lastName', 'phoneNumber', 'socialSecureNumber', 'walletBalance', 'qr_code_id']
 
+class ReceiverUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id' ,'firstName', 'lastName']
+
 class TransactionSerializer(serializers.ModelSerializer):
     transaction_type = serializers.SerializerMethodField()
 

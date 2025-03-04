@@ -5,15 +5,15 @@ from .models import User, Transaction
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ["id", "firstName", "lastName", "phoneNumber", "walletBalance", "job", "qr_code_id", "created_at"]
+    list_display = ["id", "firstName", "lastName", "phoneNumber", "walletBalance", "job", "qr_code_id", "default_payment_amount", "created_at"]
     list_per_page = 10
     list_editable = ["job"]
     search_fields = ["firstName", "lastName", "phoneNumber", "created_at"]
-    readonly_fields = ["created_at"]  # Make created_at read-only in the admin panel
+    readonly_fields = ["created_at"]
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ["date", "amount", "sender_link", "receiver_link"]
+    list_display = ["date", "sender_link", "amount", "receiver_link"]
     list_per_page = 10
     list_filter = ["date"]
     search_fields = ["sender__firstName", "receiver__firstName", "amount"]

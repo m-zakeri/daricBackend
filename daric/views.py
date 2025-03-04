@@ -1,9 +1,12 @@
 from django.db.models import Q
+from django.db import transaction as db_transaction
+from decimal import Decimal
+from django.core.exceptions import ValidationError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Transaction, User
-from .serializers import TransactionSerializer, UserSerializer
+from .serializers import TransactionSerializer, UserSerializer, ReceiverUserSerializer
 
 @api_view(['GET'])
 def get_user(request, phoneNumber):
@@ -30,10 +33,151 @@ def register_user(request):
     # Return errors if validation fails
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])  # Ensure the view is decorated with @api_view
+def get_user_by_qr_code_id(request, qr_code_id):
+    try:
+        # Fetch the user by qr_code_id
+        user = User.objects.get(qr_code_id=qr_code_id)
+        # Serialize the user with only firstName and lastName
+        serializer = ReceiverUserSerializer(user)
+        return Response(serializer.data)  # Return a properly formatted Response
+    except User.DoesNotExist:
+        return Response({"error": "User not found, please check the QR code ID."}, status=status.HTTP_404_NOT_FOUND)
+
 @api_view(['GET'])
-def transaction_history(request, user_id):
-    # Fetch transactions where the user is either the sender or the receiver
-    transactions = Transaction.objects.filter(Q(sender_id=user_id) | Q(receiver_id=user_id)).order_by('-date')
-    # Serialize the transactions
-    serializer = TransactionSerializer(transactions, many=True, context={'request': request})
-    return Response(serializer.data)
+def get_wallet_balance(request, user_id):
+    try:
+        # Fetch the user by ID
+        user = User.objects.get(id=user_id)
+        # Return the wallet balance
+        return Response({"walletBalance": user.walletBalance}, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({"error": "User not found, please check the user ID."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['PUT'])
+def update_user_name(request, user_id):
+    try:
+        # Fetch the user by ID
+        user = User.objects.get(id=user_id)
+        
+        # Get the new first name and last name from the request data
+        new_first_name = request.data.get('firstName')
+        new_last_name = request.data.get('lastName')
+        
+        # Validate the data
+        if not new_first_name or not new_last_name:
+            return Response({"error": "Both firstName and lastName are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update the user's first name and last name
+        user.firstName = new_first_name
+        user.lastName = new_last_name
+        user.save()
+        
+        # Return the updated user data
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except User.DoesNotExist:
+        return Response({"error": "User not found, please check the user ID."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def increase_wallet_balance(request):
+    # Extract data from the request
+    user_id = request.data.get('user_id')
+    amount = request.data.get('amount')
+
+    # Validate required fields
+    if not user_id or not amount:
+        return Response(
+            {"error": "user_id and amount are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Convert amount to Decimal
+        amount = Decimal(str(amount))  # Convert to string first to avoid floating-point precision issues
+
+        # Fetch the user
+        user = User.objects.get(id=user_id)
+
+        # Validate the amount
+        if amount <= Decimal('0.00'):
+            raise ValidationError({"amount": "The amount must be greater than 0."})
+
+        # Increase the wallet balance
+        user.walletBalance += amount
+        user.save()
+
+        # Return the updated wallet balance
+        return Response(
+            {"walletBalance": str(user.walletBalance)},  # Convert Decimal to string for JSON serialization
+            status=status.HTTP_200_OK
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+def create_transaction(request):
+    # Extract data from the request
+    sender_id = request.data.get('sender_id')
+    receiver_id = request.data.get('receiver_id')
+    amount = request.data.get('amount')
+
+    # Validate required fields
+    if not sender_id or not receiver_id or not amount:
+        return Response(
+            {"error": "sender_id, receiver_id, and amount are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Convert amount to Decimal
+        amount = Decimal(str(amount))  # Convert to string first to avoid floating-point precision issues
+
+        # Use a database transaction to ensure atomicity
+        with db_transaction.atomic():
+            # Fetch sender and receiver
+            sender = User.objects.select_for_update().get(id=sender_id)  # Lock the sender's row
+            receiver = User.objects.select_for_update().get(id=receiver_id)  # Lock the receiver's row
+
+            # Create and save the transaction record
+            transaction_record = Transaction(
+                sender=sender,
+                receiver=receiver,
+                amount=amount
+            )
+            transaction_record.save()  # This will update wallet balances via the Transaction model's save method
+
+        # Serialize the transaction for the response
+        serializer = TransactionSerializer(transaction_record, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    except User.DoesNotExist:
+        return Response(
+            {"error": "Sender or receiver not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
