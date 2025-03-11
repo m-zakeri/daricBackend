@@ -4,7 +4,7 @@ from .models import Transaction, User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['firstName', 'lastName', 'phoneNumber', 'socialSecureNumber', 'walletBalance', 'qr_code_id', 'default_payment_amount']
+        fields = ['id', 'firstName', 'lastName', 'phoneNumber', 'socialSecureNumber', 'walletBalance', 'qr_code_id', 'default_payment_amount']
 
 class ReceiverUserSerializer(serializers.ModelSerializer):
     class Meta:
