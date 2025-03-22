@@ -18,7 +18,8 @@ def get_user(request, phoneNumber):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     except User.DoesNotExist:
-        return Response({"error": "User not found, please check the phone number or create an acount"}, status=status.HTTP_404_NOT_FOUND)
+        # return Response({"error": "User not found, please check the phone number or create an acount"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "کاربر پیدا نشد. لطفا از درستی شماره تلفن مطمئن شوید یا اگر اکانت ندارید اکانت بسازید"}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['POST'])
 def register_user(request):
@@ -43,7 +44,8 @@ def get_user_by_qr_code_id(request, qr_code_id):
         serializer = ReceiverUserSerializer(user)
         return Response(serializer.data)  # Return a properly formatted Response
     except User.DoesNotExist:
-        return Response({"error": "User not found, please check the QR code ID."}, status=status.HTTP_404_NOT_FOUND)
+        # return Response({"error": "User not found, please check the QR code ID."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "کاربر پیدا نشد. لطفا از درستی رمزینه اسکن شده مطمئن شوید."}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
 def get_wallet_balance(request, user_id):
@@ -53,7 +55,8 @@ def get_wallet_balance(request, user_id):
         # Return the wallet balance
         return Response({"walletBalance": user.walletBalance}, status=status.HTTP_200_OK)
     except User.DoesNotExist:
-        return Response({"error": "User not found, please check the user ID."}, status=status.HTTP_404_NOT_FOUND)
+        # return Response({"error": "User not found, please check the user ID."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "کاربر پیدا نشد."}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['PUT'])
 def update_user_name(request, user_id):
@@ -67,7 +70,7 @@ def update_user_name(request, user_id):
         
         # Validate the data
         if not new_first_name or not new_last_name:
-            return Response({"error": "Both firstName and lastName are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "نام و نام‌خانوادگی لازم است."}, status=status.HTTP_400_BAD_REQUEST)
         
         # Update the user's first name and last name
         user.firstName = new_first_name
@@ -103,7 +106,8 @@ def increase_wallet_balance(request):
 
         # Validate the amount
         if amount <= Decimal('0.00'):
-            raise ValidationError({"amount": "The amount must be greater than 0."})
+            # raise ValidationError({"amount": "The amount must be greater than 0."})
+            raise ValidationError({"amount": "مقدار درخواستی برای انتقال باید بیشتر از ۰ باشد."})
 
         # Increase the wallet balance
         user.walletBalance += amount
@@ -168,8 +172,12 @@ def create_transaction(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     except User.DoesNotExist:
+        # return Response(
+        #     {"error": "Sender or receiver not found."},
+        #     status=status.HTTP_404_NOT_FOUND
+        # ) 
         return Response(
-            {"error": "Sender or receiver not found."},
+            {"error": "فرستنده یا گیرنده پیدا نشد."},
             status=status.HTTP_404_NOT_FOUND
         )
     except ValidationError as e:
@@ -205,7 +213,8 @@ def update_default_payment_amount(request):
 
         # Validate the default_payment_amount
         if default_payment_amount < 0:
-            raise ValidationError({"default_payment_amount": "The default payment amount cannot be negative."})
+            # raise ValidationError({"default_payment_amount": "The default payment amount cannot be negative."})
+            raise ValidationError({"default_payment_amount": "مقدار درخواستی برای انتقال نباید منفی باشد."})
 
         # Update the default_payment_amount
         user.default_payment_amount = default_payment_amount
