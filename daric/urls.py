@@ -12,4 +12,5 @@ urlpatterns = [
     path('transactions/create/', views.create_transaction), # done
     path('update_default_payment_value/', views.update_default_payment_amount), # ---------
     path('generate_new_qr_code_id/', views.generate_new_qr_code_id), # ---------
+    path('transaction-history/<int:user_id>/', views.get_transaction_history), # ---------
 ]

@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Transaction, User
 from .serializers import TransactionSerializer, UserSerializer, ReceiverUserSerializer
+from datetime import datetime
 import uuid
 
 @api_view(['GET'])
@@ -280,3 +281,39 @@ def generate_new_qr_code_id(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+@api_view(['GET'])
+def get_transaction_history(request, user_id):
+    # Extract start_date and end_date from query parameters
+    start_date_str = request.query_params.get('start_date')
+    end_date_str = request.query_params.get('end_date')
+
+    # Validate the presence of start_date and end_date
+    if not start_date_str or not end_date_str:
+        return Response(
+            {"error": "Both start_date and end_date are required as query parameters."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Convert the date strings to datetime objects
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return Response(
+            {"error": "Invalid date format. Please use YYYY-MM-DD."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Fetch transactions where the user is either the sender or receiver and the date is within the range
+    transactions = Transaction.objects.filter(
+        Q(sender_id=user_id) | Q(receiver_id=user_id),
+        date__range=[start_date, end_date]
+    ).order_by('-date')
+
+    # If no transactions exist, return an empty array
+    if not transactions.exists():
+        return Response([], status=status.HTTP_200_OK)
+
+    # Serialize the transactions with the request context
+    serializer = TransactionSerializer(transactions, many=True, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
